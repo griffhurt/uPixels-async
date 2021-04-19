@@ -44,7 +44,7 @@ class uPixels:
         self.server.add_route('/static/<loc>', self.static, methods=['GET'])
 
         self.toggleServerStatusLED()
-        self.server.start()
+        self.server.run(self.address, self.port)
 
     async def app(self, req, resp):
         vars = {
