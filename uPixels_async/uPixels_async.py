@@ -1,5 +1,5 @@
 import machine, uos, network, neopixel, time, urandom, sys
-from uWeb import uWeb, loadJSON
+import tinyweb
 import uasyncio
 
 
@@ -29,6 +29,7 @@ class uPixels:
             "setSegment": self.setSegment,
             "clear": self.clear,
         }
+        self.running_anim = None
         self.statusLED = 5
         self.startupAnimation()
 
@@ -37,14 +38,15 @@ class uPixels:
 
     # web server methods
     def startServer(self):
-        self.server = uWeb(self.address, self.port)
-        self.server.routes(
-            {(uWeb.GET, "/"): self.app, (uWeb.POST, "/execute"): self.execute}
-        )
+        self.server = tinyweb.webserver()
+        self.server.add_route('/', self.app, methods=["GET"])
+        self.server.add_route('/execute', self.execute, methods=['POST'])
+        self.server.add_route('/static/<loc>', self.static, methods=['GET'])
+
         self.toggleServerStatusLED()
         self.server.start()
 
-    def app(self):
+    async def app(self, req, resp):
         vars = {
             "name": self.device_name,
             "upixels_ver": self.VERSION,
@@ -55,11 +57,21 @@ class uPixels:
             + str(self.server.port),
             "num": self.np.n,
         }
-        self.server.render("uPixels.html", layout=False, variables=vars)
+        await resp.start_html()
+        with open("uPixels.html", 'r') as f:
+            for line in f.readlines():
+                await resp.send(line.format(**vars))
+                await resp.send('\n')
 
-    def execute(self):
+    # Handles static file requests
+    async def static(self, req, resp, loc):
+        await resp.send_file('static/%s' % (loc, ))
+
+    async def execute(self, req, resp):
         try:
-            query = loadJSON(self.server.request_body)
+            if self.running_anim:
+                self.running_anim.cancel()
+            query = await req.read_parse_form_data()
             action = query["action"]
             params = query["params"]
             if action not in self.animation_map.keys():
@@ -87,11 +99,10 @@ class uPixels:
                         params["secondColor"]["g"],
                         params["secondColor"]["b"],
                     )
-            self.server.sendStatus(self.server.OK)
-            self.animation_map[action](**params)  # call the animation method
+            self.running_anim = uasyncio.get_event_loop().create_task(self.animation_map[action](**params)) # call the animation method
         except Exception as e:
-            self.server.sendStatus(self.server.BAD_REQUEST)
-            self.server.sendBody(b"An error occurred: %s!" % (str(e)))
+            resp.code = 400
+            await resp.send(b"An error occurred: %s!" % (str(e)))
             sys.print_exception(e)
 
     def setStatusLED(self, pin):
