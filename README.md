@@ -1,7 +1,9 @@
-# μPixels (microPixels)
+# μPixels-async (microPixels-async)
+
 
 ![logo](https://raw.githubusercontent.com/petabite/uPixels/master/images/apple-icon-114x114px.png)
 
+Fork of [Petabite's uPixels](https://github.com/petabite/uPixels) that supports asynchronous animations.
 ### Addressable RGB LED Strip controller for MicroPython enabled micro-controllers
 
 ## Contents
@@ -49,6 +51,7 @@
 ## Changelog
 | Release | Changes                                                                     |   Date    |
 | :-----: | :-------------------------------------------------------------------------- | :-------: |
+|  v1.0 (fork) | <ul><li>Changed webserver to tinyweb as opposed to uWeb</li><li>Added asynchronous animations for nonblocking behavior</li></ul> | 04/19/2021
 |  v2.0   | <ul><li>Offical release of /execute API</li><li>add setStrip method</li><li>New rainbow chase + wipe + sparkle animations</li><li>Segment length on chase animation</li></ul> | 12/31/2020 |
 |  v1.2   | <ul><li>New colors section</li><li>New Christmas lights animation</li></ul> | 3/22/2020 |
 |  v1.1   | <ul><li>New status LED indicator</li><li>New startup animation</li></ul>    | 9/2/2019  |
@@ -78,13 +81,14 @@
 - More info on materials: [Adafruit](https://learn.adafruit.com/adafruit-neopixel-uberguide), [Sparkfun](https://learn.sparkfun.com/tutorials/ws2812-breakout-hookup-guide/all)
 
 ## Dependencies
-- uWeb (get it from my repo [here](https://github.com/petabite/uWeb))
-    ### MicroPython Libraries:
-    - neopixel
-    - uos
-    - urandom
-    - ujson
-    - usocket
+- tinyweb (get a build from [here](https://github.com/belyalov/tinyweb/releases), or the source from [here](https://github.com/belyalov/tinyweb))
+  ### MicroPython Libraries:
+  - neopixels
+  - logging
+  - uos
+  - uerrno
+  - usocket
+  - ujson
 
 ## Schematic
 
@@ -103,26 +107,28 @@
 
 
 ## Setup
-1. Install MicroPython on your board if you have not already ([ESP8266 installation](http://docs.micropython.org/en/latest/esp8266/tutorial/intro.html#intro))
-1. Install μWeb by following the INSTALLATION instructions on my [repo](https://github.com/petabite/uWeb#installation).
-1. Head over to the releases tab on this repo. Download the source code for the latest version. Copy the μPixels project files to your board using the same method you used to copy the μWeb files. Make sure that you have transferred:
-    - uPixels.css
-    - uPixels.html
-    - uPixels.js
-    - uPixels.py
-1. Construct the circuit [above](#schematic) (or a variation of it, depending on your board). You may also follow these hookup guides: [Adafruit](https://learn.adafruit.com/adafruit-neopixel-uberguide), [Sparkfun](https://learn.sparkfun.com/tutorials/ws2812-breakout-hookup-guide/all)
-1. Check out the [Quick Start](#quick-start) section for examples.
-1. Make sure you also have a boot.py for the initial setup of your board(ie: connecting to wifi) and main.py for the μPixels code.
-1. Power up your board.
-1. Navigate to your board's IP address on port 8000 using a web browser to access the UI(Ex: 192.168.100.48:8000)
-1. Enjoy the light show!
+1. Building tinyweb
+    1. Install MicroPython on your board if you have not already ([ESP8266 installation](http://docs.micropython.org/en/latest/esp8266/tutorial/intro.html#intro))
+    2. Download/clone the tinyweb library from [here](https://github.com/belyalov/tinyweb).
+    3. Compile the two source files in the tinyweb folder of the repo using `mpy-cross`.
+    4. Create the folder `/lib/tinyweb` on the microcontroller using `uos` and copy the two compiled source files into it.
+    5. Use `upip` to install `micropython-logging`.
+    6. Download/clone this repository
+    7. Compile `uPixels_async.py` and copy it to the main directory.
+    8. Copy `main.py` if you'd like.
+2. Using a build of tinyweb
+    1. Install a build of tinyweb on your device from [this link](https://github.com/belyalov/tinyweb/releases)
+    2. Download/clone this repository
+    3. Compile `uPixels_async.py` using `mpy-cross` and copy it to the main directory.
+    4. Copy `main.py` if you'd like.
+
 
 ## Quick Start
 
 #### Example application using the μPixels user interface:
 
 ``` python
-from uPixels import uPixels
+from uPixels_async import uPixels
 
 pixels = uPixels(4, 30) # init a μPixels object using Pin 4 and controlling a LED strip with 30 LEDS
 pixels.startServer() # start the server that hosts the UI on port 8000
@@ -131,14 +137,15 @@ pixels.startServer() # start the server that hosts the UI on port 8000
 #### Example application using Animations API:
 
 ``` python
-from uPixels import uPixels
+from uPixels_async import uPixels
+import uasyncio
 
 pixels = uPixels(4, 30) # init a μPixels object on Pin 4 that is controlling a LED strip with 30 LEDS
 
 for i in range(3):
-    pixels.chase(ms=40, color=(100, 0, 0), direction='right') # do a chase animation three times with delay of 40ms, red color, going right.
+    uasyncio.run(pixels.chase(ms=40, color=(100, 0, 0), direction='right')) # do a chase animation three times with delay of 40ms, red color, going right.
 
-pixels.randomFill(ms=150, color=None) # random fill animation with 150ms delay and random colors
+uasyncio.run(pixels.randomFill(ms=150, color=None)) # random fill animation with 150ms delay and random colors
 ```
 
 #### See the docs below for usage of all the μPixels animations!
@@ -159,7 +166,6 @@ After running `uPixels.startServer()`, the following routes will be available at
 
 - Run animations from the Animations API and other methods via a POST request to this route from any device connected on the same network as your microcontroller.
 - All animations from the Animations API can be called from here as well as the `setStrip`, `setSegment`, and `clear` methods.
-- BEWARE of infinite loop animations. Once you start them, they can't be stopped unless you do a hard reset!
   
 #### *Parameters*
 - This route takes a JSON body with an `action` and `params` to be passed to the `action`
@@ -265,6 +271,7 @@ Serves the UI using the uWeb server on specified address and port
 ## `uPixels.app()`
 
   ###### Description
+  *This function is a coroutine*    
   Renders the UI template to client
 
 -----
@@ -272,6 +279,7 @@ Serves the UI using the uWeb server on specified address and port
 ## `uPixels.execute()`
 
   ###### Description
+  *This function is a coroutine*   
   Runs when uPixels receives a POST request from the client and executes the animation from uPixels.animation_map
 
 -----
@@ -295,9 +303,8 @@ Serves the UI using the uWeb server on specified address and port
 -----
 
 ## Animations API
-
 -----
-
+*Note: All animations run are coroutines, meaning that they must be run through an `async` function with `await` or with `uasync.run()`.*
 ## `uPixels.startupAnimation()`
 
   ###### Description
@@ -453,7 +460,7 @@ Serves the UI using the uWeb server on specified address and port
   - color - (tuple) RGB color in the format (r, g, b).
 
 -----
-
+*Note: The following are regular functions.*
 ## `uPixels.randInt(lower, upper)`
 
   ###### Description
@@ -497,6 +504,7 @@ Serves the UI using the uWeb server on specified address and port
 - WS2812b Individually Addressable RGB LEDs
 
 ## Special Thanks
+- PetaBite (of course!)
 - MaterializeCSS
 - Google Material Design Icons
 - Spectrum.js
