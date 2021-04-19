@@ -1,5 +1,6 @@
 import machine, uos, network, neopixel, time, urandom, sys
 from uWeb import uWeb, loadJSON
+import uasyncio
 
 
 class uPixels:
@@ -102,12 +103,12 @@ class uPixels:
             status_led.value(status)
 
     # animation methods
-    def startupAnimation(self):
-        self.chase(ms=5, color=(0, 255, 155), direction="right")
-        self.chase(ms=5, color=(0, 255, 155), direction="left")
-        self.clear()
+    async def startupAnimation(self):
+        await self.chase(ms=5, color=(0, 255, 155), direction="right")
+        await self.chase(ms=5, color=(0, 255, 155), direction="left")
+        await self.clear()
 
-    def chase(self, ms=20, color=None, segment_length=5, direction="right"):
+    async def chase(self, ms=20, color=None, segment_length=5, direction="right"):
         if color == None:
             color = self.randColor()
         if direction == "right":
@@ -118,7 +119,7 @@ class uPixels:
             for j in range(segment_length):
                 self.np[i + j] = color
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
             if direction == "right":
                 clear_iter = range(i, i + segment_length + 1)
             else:
@@ -126,7 +127,7 @@ class uPixels:
             for i in clear_iter:
                 self.np[i] = (0, 0, 0)
 
-    def fillStrip(self, ms=25, color=None):
+    async def fillStrip(self, ms=25, color=None):
         if color == None:
             color = self.randColor()
         count = self.np.n
@@ -134,12 +135,12 @@ class uPixels:
             for i in range(count):
                 self.np[i] = color
                 self.np.write()
-                time.sleep_ms(ms)
+                await uasyncio.sleep_ms(ms)
                 if i != count - 1:
                     self.np[i] = (0, 0, 0)
             count -= 1
 
-    def fillFromMiddle(self, ms=40, color=None):
+    async def fillFromMiddle(self, ms=40, color=None):
         if color == None:
             color = self.randColor()
         midpoint = int(self.np.n / 2)
@@ -151,10 +152,10 @@ class uPixels:
             else:
                 self.np[midpoint - counter] = color
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
             counter += 1
 
-    def fillFromSides(self, ms=40, color=None):
+    async def fillFromSides(self, ms=40, color=None):
         if color == None:
             color = self.randColor()
         midpoint = int(self.np.n / 2)
@@ -163,10 +164,10 @@ class uPixels:
             self.np[0 + counter] = color
             self.np[self.np.n - 1 - counter] = color
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
             counter += 1
 
-    def randomFill(self, ms=150, color=None):
+    async def randomFill(self, ms=150, color=None):
         random_positions = list(range(self.np.n))
         for position in random_positions:
             rand_i = self.randInt(0, self.np.n)
@@ -179,9 +180,9 @@ class uPixels:
             else:
                 self.np[position] = color
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
 
-    def altColors(self, ms=125, firstColor=None, secondColor=None):
+    async def altColors(self, ms=125, firstColor=None, secondColor=None):
         if firstColor == None:
             color = self.randColor()
         if secondColor == None:
@@ -196,95 +197,96 @@ class uPixels:
                 else:
                     self.np[i] = secondColor
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
             for i in range(self.np.n):
                 if i % 2 == 0:
                     self.np[i] = secondColor
                 else:
                     self.np[i] = firstColor
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
 
-    def bounce(self, ms=20, color=False):
+    async def bounce(self, ms=20, color=False):
         while True:
             if color == False:
-                self.chase(ms=ms, color=self.randColor(), direction="right")
-                self.chase(ms=ms, color=self.randColor(), direction="left")
+                await self.chase(ms=ms, color=self.randColor(), direction="right")
+                await self.chase(ms=ms, color=self.randColor(), direction="left")
             else:
-                self.chase(ms=ms, color=color, direction="right")
-                self.chase(ms=ms, color=color, direction="left")
+                await self.chase(ms=ms, color=color, direction="right")
+                await self.chase(ms=ms, color=color, direction="left")
 
-    def rgbFade(self, ms=20):
+    async def rgbFade(self, ms=20):
         for channel in range(3):
             for v in range(256):
                 if channel == 0:
-                    self.setStrip((v, 0, 0))
+                    await self.setStrip((v, 0, 0))
                 if channel == 1:
-                    self.setStrip((0, v, 0))
+                    await self.setStrip((0, v, 0))
                 if channel == 2:
-                    self.setStrip((0, 0, v))
-                time.sleep_ms(ms)
+                    await self.setStrip((0, 0, v))
+                await uasyncio.sleep_ms(ms)
             for v in range(255, -1, -1):
                 if channel == 0:
-                    self.setStrip((v, 0, 0))
+                    await self.setStrip((v, 0, 0))
                 if channel == 1:
-                    self.setStrip((0, v, 0))
+                    await self.setStrip((0, v, 0))
                 if channel == 2:
-                    self.setStrip((0, 0, v))
-                time.sleep_ms(ms)
+                    await self.setStrip((0, 0, v))
+                await uasyncio.sleep_ms(ms)
 
-    def rainbow(self, ms=20, iterations=2):
+    async def rainbow(self, ms=20, iterations=2):
         for j in range(256 * iterations):
             for i in range(self.np.n):
                 self.np[i] = self.wheel(((i * 256 // self.np.n) + j) & 255)
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
 
-    def rainbowChase(self, ms=50):
+    async def rainbowChase(self, ms=50):
         for i in range(5):
             for j in range(256):
                 for q in range(3):
                     for i in range(0, self.np.n, 3):
                         self.np[i + q] = self.wheel((i + j) % 255)
                     self.np.write()
-                    time.sleep_ms(ms)
+                    await uasyncio.sleep_ms(ms)
                     for i in range(0, self.np.n, 3):
                         self.np[i + q] = (0, 0, 0)
 
-    def wipe(self, ms=20, color=None):
+    async def wipe(self, ms=20, color=None):
         if color == None:
             color = self.randColor()
         while True:
             for i in range(self.np.n):
                 self.np[i] = color
                 self.np.write()
-                time.sleep_ms(ms)
+                await uasyncio.sleep_ms(ms)
             for i in range(self.np.n):
                 self.np[i] = (0, 0, 0)
                 self.np.write()
-                time.sleep_ms(ms)
+                await uasyncio.sleep_ms(ms)
 
-    def sparkle(self, ms=10, color=None):
+    async def sparkle(self, ms=10, color=None):
         if color == None:
             color = self.randColor()
         while True:
             i = self.randInt(0, self.np.n)
             self.np[i] = color
             self.np.write()
-            time.sleep_ms(ms)
+            await uasyncio.sleep_ms(ms)
             self.np[i] = (0, 0, 0)
 
-    def clear(self):
-        self.setStrip((0, 0, 0))
+    async def clear(self):
+        await self.setStrip((0, 0, 0))
 
     # helper methods
-    def setStrip(self, color):
-        self.setSegment(list(range(self.np.n)), color)
+    async def setStrip(self, color):
+        await self.setSegment(list(range(self.np.n)), color)
 
-    def setSegment(self, segment_of_leds, color):
+    async def setSegment(self, segment_of_leds, color):
         for led in segment_of_leds:
             self.np[led] = color
         self.np.write()
+        await uasyncio.sleep(0)
 
     def randInt(self, lower, upper):
         randomNum = urandom.getrandbits(len(bin(upper)[2:])) + lower
