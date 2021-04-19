@@ -1,4 +1,4 @@
-from uPixels import uPixels
+import uPixels_async
 
-pixels = uPixels(0, 150)
+pixels = uPixels_async.uPixels(13, 150)
 pixels.startServer()
