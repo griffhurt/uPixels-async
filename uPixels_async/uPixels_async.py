@@ -31,7 +31,7 @@ class uPixels:
         }
         self.running_anim = None
         self.statusLED = 5
-        self.startupAnimation()
+        uasyncio.run(self.startupAnimation())
 
     def setDeviceName(self, name):
         self.device_name = name
@@ -40,13 +40,14 @@ class uPixels:
     def startServer(self):
         self.server = tinyweb.webserver()
         self.server.add_route('/', self.app, methods=["GET"])
-        self.server.add_route('/execute', self.execute, methods=['POST'])
+        self.server.add_route('/execute', self.execute, methods=['POST'], save_headers=['Content-Length', 'Content-Type'])
         self.server.add_route('/static/<loc>', self.static, methods=['GET'])
 
         self.toggleServerStatusLED()
         self.server.run(self.address, self.port)
 
     async def app(self, req, resp):
+        """
         vars = {
             "name": self.device_name,
             "upixels_ver": self.VERSION,
@@ -54,20 +55,23 @@ class uPixels:
             "ip": network.WLAN(network.STA_IF).ifconfig()[0],
             "host": network.WLAN(network.STA_IF).ifconfig()[0]
             + ":"
-            + str(self.server.port),
+            + str(self.port),
             "num": self.np.n,
         }
-        await resp.start_html()
-        with open("uPixels.html", 'r') as f:
-            for line in f.readlines():
-                await resp.send(line.format(**vars))
-                await resp.send('\n')
+        """
+        #await resp.start_html()
+        #with open("uPixels.html", 'r') as f:
+        #    for line in f.readlines():
+        #        await resp.send(line.format(**vars))
+        #        await resp.send('\n')
+        await resp.send_file("uPixels.html")
 
     # Handles static file requests
     async def static(self, req, resp, loc):
         await resp.send_file('static/%s' % (loc, ))
 
     async def execute(self, req, resp):
+        resp.add_access_control_headers()
         try:
             if self.running_anim:
                 self.running_anim.cancel()
