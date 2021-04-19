@@ -47,6 +47,7 @@ class uPixels:
         self.server.run(self.address, self.port)
 
     async def app(self, req, resp):
+        # TODO: Add variables and formatting to homepage
         """
         vars = {
             "name": self.device_name,
